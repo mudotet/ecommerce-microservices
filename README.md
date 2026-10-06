@@ -2,9 +2,9 @@
 
 Khung dự án `product_service` dùng Maven, Java 21 và Spring Boot 4.1.1.
 
-Thư viện: Spring Web MVC, Spring Security, Validation, Spring Data JPA, H2 và Lombok.
+Thư viện: Spring Web MVC, Spring Security, Validation, Spring Data JPA, H2, Lombok và MapStruct 1.6.3.
 
-Các thư mục `dto`, `controller`, `repository`, `service`, `config` nằm trong `product_service/src/main/java/com/mudotet/productservice/` và được giữ bằng `.gitkeep`.
+Các thư mục `dto`, `controller`, `repository`, `service`, `config`, `mapper` nằm trong `product_service/src/main/java/com/mudotet/productservice/` và được giữ bằng `.gitkeep`.
 
 Dự án hiện chỉ là bộ khung, chưa có lớp Java hoặc lớp khởi chạy Spring Boot.
 
