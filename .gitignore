@@ -1,0 +1,10 @@
+target/
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+.apt_generated/
+.DS_Store
