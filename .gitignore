@@ -8,3 +8,17 @@ target/
 .factorypath
 .apt_generated/
 .DS_Store
+
+# Local environment files (keep shareable templates)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Runtime and generated files
+*.log
+*.class
+hs_err_pid*
+replay_pid*
+HELP.md

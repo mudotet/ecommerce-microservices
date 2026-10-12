@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: product_service
+
+  security:
+    user:
+      name: demo
+      password: demo123
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/product_db
+    username: admin
+    password: admin123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  kafka:
+    consumer:
+      group-id: product-services
+      auto-offset-reset: latest
+      key-serializer: org.apache.kafka.common.serialization.SpringSerialize
+      value-serializer: org.sprintframework.kafka.support.serializer.JsonSerialize
+      properties:
+        spring.json.trust.package: "*"
+        spring.json.use.type.headers: false
+
+server:
+  port: 8081

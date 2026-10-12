@@ -4,6 +4,7 @@ import com.mudotet.productservice.common.ErrorCode;
 import com.mudotet.productservice.common.dto.BaseResponse;
 import com.mudotet.productservice.dto.request.AddProductRequest;
 import com.mudotet.productservice.dto.response.ProductResponse;
+import com.mudotet.productservice.dto.response.ProductItemResponse;
 import com.mudotet.productservice.entity.Category;
 import com.mudotet.productservice.entity.Inventory;
 import com.mudotet.productservice.entity.Product;
@@ -19,10 +20,14 @@ import com.mudotet.productservice.repository.ProductVariantRepository;
 import com.mudotet.productservice.service.ProductServices;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,6 +40,22 @@ public class ProductServicesImpl implements ProductServices {
   private final InventoryMapper inventoryMapper;
   private final ProductVariantMapper productVariantMapper;
   private final CategoryMapper categoryMapper;
+
+  @Override
+  @Transactional(readOnly = true)
+  public List<ProductItemResponse> getProductItems(List<UUID> variantIds) {
+    var products = productVariantRepository.findAllById(variantIds);
+    if (products.size() != variantIds.size()) {
+      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product variant not found");
+    }
+    return products.stream().map(product -> {
+      var price = product.getPrice();
+      if (price == null || !Double.isFinite(price) || price < 0) {
+        throw new ResponseStatusException(HttpStatus.CONFLICT, "Invalid product price");
+      }
+      return new ProductItemResponse(product.getId(), BigDecimal.valueOf(price));
+    }).toList();
+  }
 
   @Override
   @Transactional
