@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: order_services
+
+  security:
+    user:
+      name: demo
+      password: demo123
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/order_db
+    username: admin
+    password: admin123
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  kafka:
+    bootstrap-servers:
+      localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.SpringSerialize
+      value-serializer: org.sprintframework.kafka.support.serializer.JsonSerialize
+server:
+  port: 8080
