@@ -58,7 +58,8 @@ public class OrderServicesImpl implements OrderServices {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Missing product response");
         }
         Order orderCreated = orderRepository.save(order);
-        kafkaTemplate.send("order_created", orderCreated);
+        var event = orderMapper.toEvent(orderCreated);
+        kafkaTemplate.send("order_created", event);
         OrderResponse orderResponse = orderMapper.toResponse(orderCreated);
         return BaseResponse.success(orderResponse);
     }

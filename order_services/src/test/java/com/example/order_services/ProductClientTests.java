@@ -16,14 +16,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class ProductClientTests {
     @Test
-    void callsProductUrlWithDemoCredentialsAndReadsPrice() {
+    void callsProductUrlWithoutAuthenticationAndReadsPrice() {
         var id = UUID.randomUUID();
         var client = new ProductClientImpl(WebClient.builder().exchangeFunction(request -> {
             assertEquals("http://localhost:8081/products/order-items", request.url().toString());
-            var headers = new HttpHeaders();
-            headers.setBasicAuth("demo", "demo123");
-            assertEquals(headers.getFirst(HttpHeaders.AUTHORIZATION),
-                    request.headers().getFirst(HttpHeaders.AUTHORIZATION));
+            assertNull(request.headers().getFirst(HttpHeaders.AUTHORIZATION));
             return Mono.just(ClientResponse.create(HttpStatus.OK)
                     .header(HttpHeaders.CONTENT_TYPE, "application/json")
                     .body("[{\"productVariantId\":\"" + id + "\",\"unitPrice\":12.34}]")

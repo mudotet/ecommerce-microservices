@@ -2,11 +2,6 @@ spring:
   application:
     name: product_service
 
-  security:
-    user:
-      name: demo
-      password: demo123
-
   datasource:
     url: jdbc:postgresql://localhost:5433/product_db
     username: admin
@@ -17,14 +12,23 @@ spring:
       ddl-auto: update
     show-sql: true
   kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        spring.json.type.mapping: "product_locked:com.mudotet.productservice.event.ProductLockedEvent,product_lock_failed:com.mudotet.productservice.event.ProductLockFailedEvent"
     consumer:
       group-id: product-services
-      auto-offset-reset: latest
-      key-serializer: org.apache.kafka.common.serialization.SpringSerialize
-      value-serializer: org.sprintframework.kafka.support.serializer.JsonSerialize
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
       properties:
-        spring.json.trust.package: "*"
-        spring.json.use.type.headers: false
+        spring.json.trusted.packages: "com.mudotet.productservice.consumer.dto"
+        spring.json.type.mapping: "order_created:com.mudotet.productservice.consumer.dto.OrderCreatedEvent"
+    listener:
+      ack-mode: record
 
 server:
-  port: 8081
+  port: 8082

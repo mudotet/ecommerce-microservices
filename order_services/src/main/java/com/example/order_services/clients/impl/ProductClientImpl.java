@@ -20,7 +20,7 @@ public class ProductClientImpl implements ProductClient {
     private final WebClient webClient;
 
     public ProductClientImpl(WebClient.Builder builder) {
-        webClient = builder.defaultHeaders(headers -> headers.setBasicAuth("demo", "demo123")).build();
+        webClient = builder.build();
     }
 
     @Override

@@ -17,6 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 import org.springframework.http.HttpStatus;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.mockito.ArgumentCaptor;
+import org.springframework.test.util.ReflectionTestUtils;
+import com.example.order_services.event.OrderCreatedEvent;
+import com.example.order_services.entity.OrderStatus;
 import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,9 +29,10 @@ import static org.mockito.Mockito.*;
 class OrderServicesTests {
     private final OrderRepository repository = mock(OrderRepository.class);
     private final ProductClient client = mock(ProductClient.class);
+    private final KafkaTemplate<String, Object> kafkaTemplate = mock(KafkaTemplate.class);
     private final OrderServicesImpl service = new OrderServicesImpl(
             repository, Mappers.getMapper(OrderMapper.class),
-            client, mock(KafkaTemplate.class));
+            client, kafkaTemplate);
 
     @Test
     void mapsItemsWithoutReturningOrderBackReference() {
@@ -55,12 +60,23 @@ class OrderServicesTests {
         var variant = request.getItems().getFirst().getProductVariantId();
         when(client.getProductItems(List.of(request.getItems().getFirst().getProductVariantId()))).thenReturn(List.of(
                 new ProductItemResponse(variant, new BigDecimal("12.34"))));
-        when(repository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", UUID.randomUUID());
+            return saved;
+        });
         var response = service.createOrder(request).getData();
+        assertEquals(OrderStatus.NEW, response.getStatus());
+        assertEquals(new BigDecimal("24.68"), response.getTotalAmount());
         assertEquals(variant, response.getItems().getFirst().getProductVariantId());
         assertEquals(new BigDecimal("12.34"), response.getItems().getFirst().getUnitPrice());
         assertEquals(2, response.getItems().getFirst().getQuantity());
         verify(client).getProductItems(List.of(request.getItems().getFirst().getProductVariantId()));
+        var event = ArgumentCaptor.forClass(OrderCreatedEvent.class);
+        verify(kafkaTemplate).send(eq("order_created"), event.capture());
+        assertEquals(response.getId(), event.getValue().getOrderId());
+        assertEquals(variant, event.getValue().getItems().getFirst().getProductVariantId());
+        assertEquals(2, event.getValue().getItems().getFirst().getQuantity());
     }
 
     @Test
@@ -71,7 +87,7 @@ class OrderServicesTests {
 
         assertThrows(ResponseStatusException.class, () -> service.createOrder(request));
 
-        verifyNoInteractions(repository);
+        verifyNoInteractions(repository, kafkaTemplate);
     }
 
     @Test
@@ -85,7 +101,11 @@ class OrderServicesTests {
         when(client.getProductItems(List.of(first.getProductVariantId(), second.getProductVariantId())))
                 .thenReturn(List.of(new ProductItemResponse(second.getProductVariantId(), BigDecimal.TEN),
                         new ProductItemResponse(first.getProductVariantId(), BigDecimal.ONE)));
-        when(repository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", UUID.randomUUID());
+            return saved;
+        });
 
         var response = service.createOrder(request).getData();
 
@@ -110,7 +130,7 @@ class OrderServicesTests {
         when(client.getProductItems(List.of(request.getItems().getFirst().getProductVariantId()))).thenReturn(List.of(
                 new ProductItemResponse(UUID.randomUUID(), BigDecimal.ONE)));
         assertThrows(ResponseStatusException.class, () -> service.createOrder(request));
-        verifyNoInteractions(repository);
+        verifyNoInteractions(repository, kafkaTemplate);
     }
 
     @Test

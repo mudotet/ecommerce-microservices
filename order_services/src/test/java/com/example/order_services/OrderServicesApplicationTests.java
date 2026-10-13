@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.security.test.context.support.WithMockUser;
 
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -25,7 +24,6 @@ class OrderServicesApplicationTests {
     private OrderServices orderServices;
 
     @Test
-    @WithMockUser
     void healthCheck() throws Exception {
         mvc.perform(get("/orders/health"))
                 .andExpect(status().isOk())
@@ -33,7 +31,6 @@ class OrderServicesApplicationTests {
     }
 
     @Test
-    @WithMockUser
     void getOrderById() throws Exception {
         var id = UUID.randomUUID();
         var response = new OrderResponse();
@@ -45,10 +42,8 @@ class OrderServicesApplicationTests {
     }
 
     @Test
-    @WithMockUser
     void rejectsInvalidCreateItems() throws Exception {
         mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/orders")
-                .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf())
                 .contentType("application/json")
                 .content("{\"items\":[{\"productVariantId\":\"" + UUID.randomUUID() + "\",\"quantity\":0}]}"))
                 .andExpect(status().isBadRequest());
@@ -56,7 +51,6 @@ class OrderServicesApplicationTests {
     }
 
     @Test
-    @WithMockUser
     void rejectsInvalidOrderId() throws Exception {
         mvc.perform(get("/orders/not-a-uuid")).andExpect(status().isBadRequest());
         verifyNoInteractions(orderServices);
