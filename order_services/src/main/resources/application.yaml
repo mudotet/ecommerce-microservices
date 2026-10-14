@@ -19,17 +19,15 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
       properties:
         spring.json.type.mapping: "order_created:com.example.order_services.event.OrderCreatedEvent"
+      acks: all
     consumer:
       group-id: order-services
       auto-offset-reset: earliest
-      enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
       properties:
         spring.json.trusted.packages: "com.example.order_services.consumer.dto"
         spring.json.type.mapping: "product_locked:com.example.order_services.consumer.dto.ProductLockedEvent,product_lock_failed:com.example.order_services.consumer.dto.ProductLockFailedEvent"
-    listener:
-      ack-mode: record
 
 server:
-  port: 8081
+  port: 8080

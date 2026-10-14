@@ -18,17 +18,14 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
       properties:
         spring.json.type.mapping: "product_locked:com.mudotet.productservice.event.ProductLockedEvent,product_lock_failed:com.mudotet.productservice.event.ProductLockFailedEvent"
+      acks: all
     consumer:
       group-id: product-services
       auto-offset-reset: earliest
-      enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
       properties:
         spring.json.trusted.packages: "com.mudotet.productservice.consumer.dto"
         spring.json.type.mapping: "order_created:com.mudotet.productservice.consumer.dto.OrderCreatedEvent"
-    listener:
-      ack-mode: record
-
 server:
-  port: 8082
+  port: 8081

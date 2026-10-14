@@ -6,7 +6,12 @@ import com.mudotet.productservice.dto.request.LockProductReq;
 import com.mudotet.productservice.entity.*;
 import com.mudotet.productservice.repository.*;
 import com.mudotet.productservice.service.InventoryLockService;
+import com.mudotet.productservice.service.impl.InventoryServicesImpl;
 import jakarta.persistence.EntityManager;
+import org.springframework.context.annotation.Bean;
+import org.redisson.api.RedissonClient;
+import org.redisson.Redisson;
+import org.redisson.spring.starter.RedissonAutoConfigurationV4;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -37,15 +42,27 @@ import static org.junit.jupiter.api.Assertions.*;
     })
 class InventoryLockIntegrationTests {
   @Configuration
-  @EnableAutoConfiguration
+  @EnableAutoConfiguration(exclude = RedissonAutoConfigurationV4.class)
   @EntityScan(basePackageClasses = Inventory.class)
   @EnableJpaRepositories(basePackageClasses = InventoryRepository.class,
       excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE,
           classes = {CategoryRepository.class, ProductRepository.class, ProductVariantRepository.class}))
-  @Import({InventoryLockService.class, AuditingConfig.class})
-  static class Config {}
+  @Import({InventoryServicesImpl.class, AuditingConfig.class})
+  static class Config {
+    @Bean
+    RedissonClient redissonClient() {
+      var address = System.getProperty("inventory.tests.redis-address");
+      if (address == null) {
+        return InventoryTestLocks.client();
+      }
+      var config = new org.redisson.config.Config();
+      config.useSingleServer().setAddress(address);
+      return Redisson.create(config);
+    }
+  }
 
   @Autowired InventoryLockService service;
+  @Autowired RedissonClient redisson;
   @Autowired InventoryRepository inventories;
   @Autowired ProcessedOrderRepository results;
   @Autowired EntityManager entityManager;
@@ -65,6 +82,26 @@ class InventoryLockIntegrationTests {
       assertEquals(1, quantity(variantId));
       assertTrue(results.existsById(a.getOrderId()));
       assertTrue(results.existsById(b.getOrderId()));
+    }
+  }
+
+  @Test
+  void overlappingProductListsCannotOversellSharedVariant() throws Exception {
+    var a = stock(5);
+    var b = stock(5);
+    var c = stock(5);
+    var firstRequest = new LockProductReq(UUID.randomUUID(), List.of(
+        new LockProductItem(a, 4), new LockProductItem(b, 1)));
+    var secondRequest = new LockProductReq(UUID.randomUUID(), List.of(
+        new LockProductItem(a, 4), new LockProductItem(c, 1)));
+    var start = new CountDownLatch(1);
+    try (var executor = Executors.newFixedThreadPool(2)) {
+      var first = executor.submit(() -> { start.await(); return service.lockProducts(firstRequest); });
+      var second = executor.submit(() -> { start.await(); return service.lockProducts(secondRequest); });
+      start.countDown();
+      assertNotEquals(first.get(15, TimeUnit.SECONDS).isSuccess(), second.get(15, TimeUnit.SECONDS).isSuccess());
+      assertEquals(1, quantity(a));
+      assertEquals(9, quantity(b) + quantity(c));
     }
   }
 

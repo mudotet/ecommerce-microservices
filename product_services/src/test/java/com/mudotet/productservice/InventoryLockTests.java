@@ -9,7 +9,11 @@ import com.mudotet.productservice.entity.ProductVariant;
 import com.mudotet.productservice.repository.InventoryRepository;
 import com.mudotet.productservice.repository.ProcessedOrderRepository;
 import com.mudotet.productservice.service.InventoryLockService;
+import com.mudotet.productservice.service.impl.InventoryServicesImpl;
 import org.junit.jupiter.api.Test;
+import org.redisson.api.RedissonClient;
+import org.redisson.api.RLock;
+import java.util.concurrent.TimeUnit;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -22,7 +26,8 @@ import static org.mockito.Mockito.*;
 class InventoryLockTests {
   private final InventoryRepository inventories = mock(InventoryRepository.class);
   private final ProcessedOrderRepository results = mock(ProcessedOrderRepository.class);
-  private final InventoryLockService service = new InventoryLockService(inventories, results);
+  private final RedissonClient redisson = InventoryTestLocks.client();
+  private final InventoryLockService service = new InventoryServicesImpl(inventories, results, redisson);
 
   @Test
   void deductsAllRequestedStock() {
@@ -90,6 +95,71 @@ class InventoryLockTests {
     var b = inventory(3);
     assertThrows(BusinessException.class, () -> service.lockProducts(request(a, 0, b, 1)));
     verifyNoInteractions(inventories, results);
+  }
+
+  @Test
+  void nullRequestIsRejectedBeforeAccessingRedis() {
+    assertThrows(BusinessException.class, () -> service.lockProducts(null));
+    verifyNoInteractions(redisson, inventories, results);
+  }
+
+  @Test
+  void lockTimeoutLeavesStockUntouchedAndDoesNotUnlockAnotherOwner() throws Exception {
+    var a = inventory(5);
+    var b = inventory(3);
+    var request = request(a, 2, b, 1);
+    RLock blocked = mock(RLock.class);
+    when(redisson.getLock(lockKey(request))).thenReturn(blocked);
+    assertThrows(IllegalStateException.class, () -> service.lockProducts(request));
+    assertEquals(5, a.getQuantity());
+    assertEquals(3, b.getQuantity());
+    verifyNoInteractions(inventories, results);
+    verify(blocked, never()).unlock();
+  }
+
+  @Test
+  void interruptionRestoresInterruptFlagAndDoesNotChangeStock() throws Exception {
+    var a = inventory(5);
+    var request = request(a, 2, inventory(3), 1);
+    RLock interrupted = mock(RLock.class);
+    when(redisson.getLock(lockKey(request))).thenReturn(interrupted);
+    when(interrupted.tryLock(10, TimeUnit.SECONDS)).thenThrow(new InterruptedException());
+    try {
+      assertThrows(IllegalStateException.class, () -> service.lockProducts(request));
+      assertTrue(Thread.currentThread().isInterrupted());
+      assertEquals(5, a.getQuantity());
+      verifyNoInteractions(inventories, results);
+    } finally {
+      Thread.interrupted();
+    }
+  }
+
+  @Test
+  void databaseFailureReleasesLock() {
+    var a = inventory(5);
+    var b = inventory(3);
+    var request = request(a, 2, b, 1);
+    when(results.findById(request.getOrderId())).thenThrow(new IllegalStateException("Database unavailable"));
+    assertThrows(IllegalStateException.class, () -> service.lockProducts(request));
+    assertEquals(5, a.getQuantity());
+    assertFalse(redisson.getLock(lockKey(request)).isHeldByCurrentThread());
+  }
+
+  @Test
+  void successfulRequestReleasesLockInFinally() {
+    var a = inventory(5);
+    var b = inventory(3);
+    var request = request(a, 2, b, 1);
+    when(inventories.findAllForUpdate(anyList())).thenReturn(List.of(a, b));
+    assertTrue(service.lockProducts(request).isSuccess());
+    assertEquals(3, a.getQuantity());
+    assertFalse(redisson.getLock(lockKey(request)).isHeldByCurrentThread());
+  }
+
+  private String lockKey(LockProductReq request) {
+    return "lock:products:" + request.getItems().stream()
+        .map(LockProductItem::getProductVariantId).sorted().map(UUID::toString)
+        .collect(java.util.stream.Collectors.joining(","));
   }
 
   private Inventory inventory(int quantity) {
