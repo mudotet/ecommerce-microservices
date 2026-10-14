@@ -17,30 +17,33 @@ import org.springframework.web.server.ResponseStatusException;
 
 @Component
 public class ProductClientImpl implements ProductClient {
-    private final WebClient webClient;
+  private final WebClient webClient;
 
-    public ProductClientImpl(WebClient.Builder builder) {
-        webClient = builder.build();
-    }
+  public ProductClientImpl(WebClient.Builder builder) {
+    webClient = builder.build();
+  }
 
-    @Override
-    public List<ProductItemResponse> getProductItems(List<UUID> variantIds) {
-        try {
-            var result = webClient.post()
-                    .uri("http://localhost:8081/products/order-items")
-                    .bodyValue(variantIds)
-                    .retrieve()
-                    .bodyToMono(new ParameterizedTypeReference<List<ProductItemResponse>>() {
-                    })
-                    .block();
-            if (result == null || result.size() != variantIds.size()) {
-                throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid product response");
-            }
-            return result;
-        } catch (WebClientResponseException exception) {
-            throw new ResponseStatusException(exception.getStatusCode(), "Could not get product information", exception);
-        } catch (WebClientRequestException | IllegalStateException exception) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Product service unavailable", exception);
-        }
+  @Override
+  public List<ProductItemResponse> getProductItems(List<UUID> variantIds) {
+    try {
+      var result =
+          webClient
+              .post()
+              .uri("http://product-services/products/order-items")
+              .bodyValue(variantIds)
+              .retrieve()
+              .bodyToMono(new ParameterizedTypeReference<List<ProductItemResponse>>() {})
+              .block();
+      if (result == null || result.size() != variantIds.size()) {
+        throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Invalid product response");
+      }
+      return result;
+    } catch (WebClientResponseException exception) {
+      throw new ResponseStatusException(
+          exception.getStatusCode(), "Could not get product information", exception);
+    } catch (WebClientRequestException | IllegalStateException exception) {
+      throw new ResponseStatusException(
+          HttpStatus.BAD_GATEWAY, "Product service unavailable", exception);
     }
+  }
 }

@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: Gateway_server
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: order-service
+              uri: lb://order-services
+              predicates:
+                - Path=/orders/**
+            - id: product-service
+              uri: lb://product-services
+              predicates:
+                - Path=/products/**
+
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+
+server:
+  port: 8282
+logging:
+  level:
+    root: info

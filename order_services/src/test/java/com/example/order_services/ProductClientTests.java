@@ -19,7 +19,7 @@ class ProductClientTests {
     void callsProductUrlWithoutAuthenticationAndReadsPrice() {
         var id = UUID.randomUUID();
         var client = new ProductClientImpl(WebClient.builder().exchangeFunction(request -> {
-            assertEquals("http://localhost:8081/products/order-items", request.url().toString());
+            assertEquals("http://product-services/products/order-items", request.url().toString());
             assertNull(request.headers().getFirst(HttpHeaders.AUTHORIZATION));
             return Mono.just(ClientResponse.create(HttpStatus.OK)
                     .header(HttpHeaders.CONTENT_TYPE, "application/json")
