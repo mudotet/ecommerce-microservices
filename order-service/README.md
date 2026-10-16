@@ -23,6 +23,12 @@ The default port is `8080`. PostgreSQL uses `order_db` at `localhost:5433`; Kafk
 
 For infrastructure, seed data, startup order, and request examples, follow [Run locally](../README.md#run-locally) in the project README.
 
+## Logging
+
+`src/main/resources/logback-spring.xml` keeps console logging and sends JSON events to Logstash over TCP at `localhost:5000`. Each event includes the configured custom field `app_name: "order-service"`. Order creation logs the incoming request. Set `LOGSTASH_DESTINATION` in the application process environment to use another Logstash host and port.
+
+With ELK running, find these events in Kibana using the `ecommerce-logs-*` data view and the filter `app_name: "order-service"`.
+
 ## Build and test
 
 Run from this module using JDK 21:

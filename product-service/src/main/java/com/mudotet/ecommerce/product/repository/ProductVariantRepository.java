@@ -10,6 +10,10 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ProductVariantRepository extends JpaRepository<ProductVariant, UUID> {
+  List<ProductVariant> findAllByProductId(UUID productId);
+
+  void deleteAllByProductId(UUID productId);
+
   @Query(
       """
     select new com.mudotet.ecommerce.product.dto.response.ProductResponse(

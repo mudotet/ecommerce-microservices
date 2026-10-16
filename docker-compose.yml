@@ -107,9 +107,96 @@ services:
       kafka:
         condition: service_healthy
 
+  elasticsearch:
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:${ELASTIC_STACK_VERSION:-9.5.5}
+    ports:
+      - "127.0.0.1:9200:9200"
+      - "127.0.0.1:9300:9300"
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      xpack.ml.enabled: "false"
+      bootstrap.memory_lock: "true"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - optimize-network
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS 'http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s' > /dev/null" ]
+      interval: 10s
+      timeout: 10s
+      retries: 18
+      start_period: 60s
+
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:${ELASTIC_STACK_VERSION:-9.5.5}
+    ports:
+      - "127.0.0.1:5044:5044"
+      - "127.0.0.1:5000:5000/tcp"
+      - "127.0.0.1:5000:5000/udp"
+    environment:
+      LS_JAVA_OPTS: "-Xms512m -Xmx512m"
+      API_HTTP_HOST: "0.0.0.0"
+      API_HTTP_PORT: "9600"
+      PIPELINE_WORKERS: "1"
+      PIPELINE_ECS_COMPATIBILITY: v8
+      XPACK_MONITORING_ENABLED: "false"
+    volumes:
+      - ./logstash/config/logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro
+      - logstash_data:/usr/share/logstash/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:9600/_node/pipelines/main | grep -q '\"main\"'" ]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 60s
+    networks:
+      - optimize-network
+
+  kibana:
+    container_name: kibana
+    image: docker.elastic.co/kibana/kibana:${ELASTIC_STACK_VERSION:-9.5.5}
+    ports:
+      - "127.0.0.1:5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      SERVER_HOST: "0.0.0.0"
+      TELEMETRY_ENABLED: "false"
+      NODE_OPTIONS: "--max-old-space-size=1024"
+    volumes:
+      - kibana_data:/usr/share/kibana/data
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -fsS http://localhost:5601/api/status > /dev/null" ]
+      interval: 10s
+      timeout: 5s
+      retries: 24
+      start_period: 90s
+    networks:
+      - optimize-network
+
+networks:
+  optimize-network:
+    driver: bridge
+
 volumes:
   keycloak_data:
   postgres_data:
   kafka_data:
   redis_data:
   redisinsight_data:
+  elasticsearch_data:
+  logstash_data:
+  kibana_data:

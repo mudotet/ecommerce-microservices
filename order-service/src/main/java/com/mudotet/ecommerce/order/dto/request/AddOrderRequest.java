@@ -7,10 +7,11 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 
 @Getter
 @Setter
+@ToString
 public class AddOrderRequest extends BaseRequest {
-    @NotEmpty
-    private List<@NotNull @Valid OrderItemRequest> items;
+  @NotEmpty private List<@NotNull @Valid OrderItemRequest> items;
 }

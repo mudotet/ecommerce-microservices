@@ -3,8 +3,11 @@ package com.mudotet.ecommerce.product.service.impl;
 import com.mudotet.ecommerce.product.common.ErrorCode;
 import com.mudotet.ecommerce.product.common.dto.BaseResponse;
 import com.mudotet.ecommerce.product.dto.request.AddProductRequest;
+import com.mudotet.ecommerce.product.dto.request.UpdateProductRequest;
 import com.mudotet.ecommerce.product.dto.response.ProductResponse;
 import com.mudotet.ecommerce.product.dto.response.ProductItemResponse;
+import com.mudotet.ecommerce.product.dto.response.ProductDetailResponse;
+import com.mudotet.ecommerce.product.dto.response.ProductVariantDetailResponse;
 import com.mudotet.ecommerce.product.entity.Category;
 import com.mudotet.ecommerce.product.entity.Inventory;
 import com.mudotet.ecommerce.product.entity.Product;
@@ -19,6 +22,9 @@ import com.mudotet.ecommerce.product.repository.ProductRepository;
 import com.mudotet.ecommerce.product.repository.ProductVariantRepository;
 import com.mudotet.ecommerce.product.service.ProductService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +36,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ProductServiceImpl implements ProductService {
   private final ProductRepository productRepository;
@@ -93,6 +100,43 @@ public class ProductServiceImpl implements ProductService {
   }
 
   @Override
+  @CacheEvict(cacheNames = "product-details", key = "#productId")
+  @Transactional
+  public BaseResponse<Boolean> updateProduct(UUID productId, UpdateProductRequest request) {
+    log.info("[PRODUCT UPDATE] Reading product and category from database: productId={}, categoryId={}",
+        productId, request.getCategoryId());
+    var product = productRepository.findById(productId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+    var category = categoryRepository.findById(request.getCategoryId())
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Category not found"));
+    if (!product.getName().equals(request.getProductName())
+        && productRepository.existsByName(request.getProductName())) {
+      throw new ResponseStatusException(HttpStatus.CONFLICT, "Product already exists");
+    }
+    product.setName(request.getProductName());
+    product.setCategory(category);
+    productRepository.save(product);
+    log.info("[PRODUCT UPDATE] Saved changes: productId={}; cache eviction follows successful execution",
+        productId);
+    return BaseResponse.success(true);
+  }
+
+  @Override
+  @CacheEvict(cacheNames = "product-details", key = "#productId")
+  @Transactional
+  public BaseResponse<Boolean> deleteProduct(UUID productId) {
+    log.info("[PRODUCT DELETE] Reading product from database: productId={}", productId);
+    var product = productRepository.findById(productId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+    inventoryRepository.deleteAllByProductVariantProductId(productId);
+    productVariantRepository.deleteAllByProductId(productId);
+    productRepository.delete(product);
+    log.info("[PRODUCT DELETE] Scheduled deletion of product, variants and inventory: productId={}; "
+        + "cache eviction follows successful execution", productId);
+    return BaseResponse.success(true);
+  }
+
+  @Override
   public BaseResponse<ProductResponse> getProductById(String productVariantId) {
     ProductResponse productVariant =
         productVariantRepository.findProductVariantByIdToResponse(productVariantId);
@@ -101,6 +145,37 @@ public class ProductServiceImpl implements ProductService {
         .message("Product found successfully")
         .timestamp(Instant.now())
         .build();
+  }
+
+  @Override
+  @Cacheable(cacheNames = "product-details", key = "#productId")
+  @Transactional(readOnly = true)
+  public ProductDetailResponse getProductDetail(UUID productId) {
+    log.info("[PRODUCT DETAIL] Cache miss; reading product from database: productId={}", productId);
+    var product = productRepository.findById(productId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+    log.info("[PRODUCT DETAIL] Reading variants from database: productId={}", productId);
+    var variants = productVariantRepository.findAllByProductId(productId).stream()
+        .map(variant -> ProductVariantDetailResponse.builder()
+            .id(variant.getId())
+            .variantName(variant.getVariantName())
+            .price(variant.getPrice())
+            .description(variant.getDescription())
+            .build())
+        .toList();
+
+    var detail = ProductDetailResponse.builder()
+        .id(product.getId())
+        .name(product.getName())
+        .categoryId(product.getCategory().getId())
+        .categoryName(product.getCategory().getName())
+        .createdAt(product.getCreatedAt())
+        .updatedAt(product.getUpdatedAt())
+        .variants(variants)
+        .build();
+    log.info("[PRODUCT DETAIL] Loaded database details: productId={}, variantCount={}; "
+        + "result ready for caching", productId, variants.size());
+    return detail;
   }
 
   @Override

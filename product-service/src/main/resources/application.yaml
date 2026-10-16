@@ -2,6 +2,15 @@ spring:
   application:
     name: product-service
 
+  cache:
+    type: redis
+    cache-names: product-details
+    redis:
+      time-to-live: 5m
+      cache-null-values: false
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=5m
+
   datasource:
     url: jdbc:postgresql://localhost:5433/product_db
     username: ${POSTGRES_USER:admin}
@@ -29,6 +38,10 @@ spring:
         spring.json.type.mapping: "order_created:com.mudotet.ecommerce.product.consumer.dto.OrderCreatedEvent"
 server:
   port: 8081
+
+logging:
+  level:
+    org.springframework.cache.interceptor: TRACE
 
 eureka:
   instance:
