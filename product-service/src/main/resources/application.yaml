@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: product-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5433/product_db
+    username: ${POSTGRES_USER:admin}
+    password: ${POSTGRES_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      properties:
+        spring.json.type.mapping: "product_locked:com.mudotet.ecommerce.product.event.ProductLockedEvent,product_lock_failed:com.mudotet.ecommerce.product.event.ProductLockFailedEvent"
+      acks: all
+    consumer:
+      group-id: product-services
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.mudotet.ecommerce.product.consumer.dto"
+        spring.json.type.mapping: "order_created:com.mudotet.ecommerce.product.consumer.dto.OrderCreatedEvent"
+server:
+  port: 8081
+
+eureka:
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

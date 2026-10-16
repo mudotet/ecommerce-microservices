@@ -2,27 +2,30 @@
 
 ## Project Structure & Module Organization
 
-This repository contains two independent Java 21 / Spring Boot Maven services, with no root aggregator POM:
+This repository contains five independent Java 21 / Spring Boot Maven applications, with no root aggregator POM:
 
-- `product_services/`: catalog, variants, inventory, and an order-event consumer; Java packages start at `com.mudotet.productservice`.
-- `order_services/`: order creation, product HTTP client, and Kafka publishing; Java packages start at `com.example.order_services`.
+- `product-service/`: catalog, variants, inventory, and an order-event consumer; Java packages start at `com.mudotet.ecommerce.product`.
+- `order-service/`: order creation, product HTTP client, and Kafka publishing; Java packages start at `com.mudotet.ecommerce.order`.
+- `auth-service/`: Keycloak registration and login under `com.mudotet.ecommerce.auth`.
+- `api-gateway/`: reactive gateway under `com.mudotet.ecommerce.gateway`.
+- `discovery-server/`: Eureka registry under `com.mudotet.ecommerce.discovery`.
 
-Each service uses `src/main/java`, `src/main/resources`, and `src/test/java`. Keep controllers, services, repositories, entities, DTOs, and MapStruct mappers in their existing packages. Generated output belongs in `target/`. Consult `order_services/AGENTS.md` when changing that module. The root README contains outdated scaffold instructions; verify paths against the current checkout.
+Each service uses `src/main/java`, `src/main/resources`, and `src/test/java`. Keep controllers, services, repositories, entities, DTOs, and MapStruct mappers in their existing packages. Generated output belongs in `target/`. Consult `order-service/AGENTS.md` when changing that module. The root README documents local setup and the current implementation scope.
 
 ## Build, Test, and Development Commands
 
-Run commands inside the service being changed, for example `cd product_services` or `cd order_services`:
+Run commands inside the service being changed, for example `cd product-service` or `cd order-service`:
 
 - `./mvnw compile`: compile Java and generate Lombok/MapStruct output.
 - `./mvnw test`: run the module's automated tests.
 - `./mvnw package`: run tests and build the application JAR.
 - `./mvnw spring-boot:run`: start the service locally.
 
-Build both modules when changing their shared HTTP or Kafka contracts. Local configuration expects PostgreSQL at `localhost:5433`, with `product_db` and `order_db`, and Kafka at `localhost:9092`. Product listens on port `8081`; order listens on `8080`. The root Dockerfile is an Ubuntu placeholder, not an application launcher.
+Build Product and Order when changing their shared HTTP or Kafka contracts. Local configuration expects PostgreSQL at `localhost:5433`, with `product_db` and `order_db`, and Kafka at `localhost:9092`. Product listens on port `8081`; Order listens on `8080`. Compose runs infrastructure; start Java applications separately.
 
 ## Coding Style & Naming Conventions
 
-Match surrounding indentation: product code commonly uses two spaces; order code uses four. Use `UpperCamelCase` classes, `lowerCamelCase` methods/fields, and `UPPER_SNAKE_CASE` constants. Follow names such as `AddOrderRequest`, `OrderResponse`, and `OrderRepository`. Preserve Jakarta validation and service transaction boundaries. Edit mapper interfaces rather than generated implementations. No formatter or linter is configured.
+Match surrounding indentation: product code commonly uses two spaces; order code uses four. Use kebab-case service directories and Maven artifact IDs, `UpperCamelCase` classes, `lowerCamelCase` methods/fields, and `UPPER_SNAKE_CASE` constants. Use singular service names such as `OrderService`, and `Request`/`Response` suffixes for API models. Runtime configuration is named `application.yaml` in every module. Preserve Jakarta validation and service transaction boundaries. Edit mapper interfaces rather than generated implementations. No formatter or linter is configured.
 
 ## Testing Guidelines
 
